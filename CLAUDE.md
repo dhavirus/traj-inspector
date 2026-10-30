@@ -196,3 +196,22 @@ Done = all of:
 - Test data from the old sandbox is not carried over — regenerate it with the recipe above.
 - Related existing code: `cln025.py` (Drive `googleColab_run/7.protein-folding/src/`) has
   `count_transitions`, `best_hummer_q`, `stat_inefficiency`, `tica_msm`, QC helpers — reuse logic.
+
+## Status after the v1 build (2026-10-30)
+
+Built: rules.yaml (28 rules) + rules.py, readers.py, analysis.py, checks.py, report.py, viewer/, app.py, packaging/, appimage.yml.
+Tests: `pytest` (69) incl. offscreen window test; `tests/make_screenshots.py OUT` for the three tab screenshots;
+`tests/make_testdata.py` regenerates `tests/data` (needs gmx, AmberTools, openmm).
+
+Corrections to the facts above, found while building:
+- `cln025.py` was at the repo root; it now lives in `reference/`.
+- `pip install --platform manylinux_2_35_x86_64` alone matches nothing (pip 26.2 does not expand to older manylinux tags);
+  `build_appdir.sh` lists every tag up to 2_35.
+- pymbar `detect_equilibration` cuts almost all frames of a two-state Q series (3835 of 4000 in a synthetic telegraph series).
+  N_eff, block SE and transitions therefore use all frames; t0 is INFO only (see `analysis.stat_inefficiency`).
+- Test data: GROMACS with amber99sb-ildn + TIP3P (apt gromacs 2023.3; GitHub downloads of a99SB-disp were blocked), so
+  `mass-repartition-factor` (GROMACS >= 2024) was not exercised; HMR is detected from masses.
+  In a `-noappend` restart, `-nsteps` counts additional steps; GROMACS repeats the checkpoint frame in the next part.
+- Q needs a compact reference: an extended chain has no native contacts and `run_checks` stops with a ValueError.
+- Citations in rules.yaml: only Bussi 2007, Bernetti & Bussi 2020 and Sahil 2023 were confirmed in PubMed (source_url set);
+  the others are as given above and marked "not verified". The explainer and review doc were not available in this session.
