@@ -39,11 +39,13 @@ mkdir -p "$APPDIR/usr/share/trajinspector"
 for m in $PRUNE_QT; do
     rm -rf "$SITE"/PySide6/Qt*"$m"*.abi3.so "$SITE"/PySide6/Qt/lib/libQt6*"$m"*.so* "$SITE"/PySide6/Qt/qml/Qt*"$m"* "$SITE"/PySide6/Qt/plugins/*/*"$m"* 2>/dev/null || true
 done
-rm -rf "$SITE"/PySide6/{examples,include,typesystems,glue,scripts} "$SITE"/PySide6/Qt/translations "$SITE"/PySide6/Qt/metatypes \
+rm -rf "$SITE"/PySide6/{examples,include,typesystems,glue,scripts} "$SITE"/PySide6/Qt/metatypes \
        "$SITE"/PySide6/Qt/libexec/{assistant,designer,linguist,lupdate,lrelease,qmlformat,qmllint,qmlls} "$APPDIR"/usr/include "$APPDIR"/usr/share/man
+find "$SITE/PySide6/Qt/translations" -maxdepth 1 -name "*.qm" -delete   # keep qtwebengine_locales: Chromium needs its .pak files
 find "$APPDIR/usr" -name __pycache__ -type d -prune -exec rm -rf {} +
 find "$SITE" -type d \( -name tests -o -name test \) -prune -exec rm -rf {} +
 
+chmod -R a+rX "$APPDIR"   # some wheel directories are extracted 0700; appimagetool refuses those
 install -m 755 "$ROOT/packaging/AppRun" "$APPDIR/AppRun"
 install -m 644 "$ROOT/packaging/trajinspector.desktop" "$APPDIR/trajinspector.desktop"
 "$PY" "$ROOT/packaging/make_icon.py" "$APPDIR/trajinspector.png"
