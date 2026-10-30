@@ -165,9 +165,9 @@ def _row_html(row: Row) -> str:
             f"<td>{source}</td><td>{escape(rule.tested_on) or chr(0x2014)}</td></tr>")
 
 
-def _gate_html(gate: int, rows: list[Row]) -> str:
+def _gate_html(gate: int, rows: list[Row], order: dict[str, int]) -> str:
     head = "<tr><th>Status</th><th>Check</th><th>Replica</th><th>Value</th><th>Threshold</th><th>Source</th><th>Tested on</th></tr>"
-    body = "".join(_row_html(r) for r in sorted(rows, key=lambda r: (r.result.replica == CAMPAIGN, r.rule.id)) if r.rule.gate == gate)
+    body = "".join(_row_html(r) for r in sorted(rows, key=lambda r: (order[r.rule.id], r.result.replica == CAMPAIGN)) if r.rule.gate == gate)
     return f"<h2>{GATES[gate]}</h2><table>{head}{body}</table>"
 
 
@@ -175,6 +175,7 @@ def render_html(campaign: Campaign, ruleset: R.RuleSet) -> str:
     """Complete report. Statuses come from the rules passed in, so editing a rule only needs a new call."""
     rows = evaluate_results(ruleset, campaign.results)
     counts = summary_counts(rows)
+    order = {r.id: i for i, r in enumerate(ruleset.rules)}
     cards = "".join(
         f'<div class="card"><b>{escape(GATES[g])}</b>' + "".join(f'<span>{_chip(s)} {c[s]}</span>' for s in (R.PASS, R.WARN, R.FAIL) )
         + f'<div class="muted">N/A {c[R.NA]} · manual {c[R.MANUAL]} · info {c[R.INFO]}</div></div>' for g, c in counts.items())
@@ -187,5 +188,5 @@ def render_html(campaign: Campaign, ruleset: R.RuleSet) -> str:
     figs = "".join(f"<figure><figcaption class='muted'>{escape(t)}</figcaption>{svg}</figure>" for t, svg in figures)
     return (f"<!doctype html><html lang='en'><meta charset='utf-8'><title>Traj Inspector report</title><style>{CSS}</style><body>"
             f"<h1>Trajectory evaluation</h1><p class='muted'>Replicas: {replicas}. Traj Inspector {__version__}.</p>{notes}"
-            f"<div class='cards'>{cards}</div>" + "".join(_gate_html(g, rows) for g in GATES)
+            f"<div class='cards'>{cards}</div>" + "".join(_gate_html(g, rows, order) for g in GATES)
             + f"<h2>Plots</h2>{figs}<h2>Not in v1</h2><p class='muted'>{escape(NOT_IN_V1)}.</p></body></html>")

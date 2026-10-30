@@ -1,7 +1,7 @@
 """Regenerate the CLN025 (YYDPETGTWY) test systems under tests/data/{amber,gromacs,openmm}.
 
-Not run by pytest: the outputs are committed. Needs `gmx` (apt gromacs), AmberTools (`tleap`, `sander` on PATH)
-and `openmm` (pip). Usage: python tests/make_testdata.py [outdir]
+Not run by pytest: the outputs are committed. Needs `gmx` (apt gromacs), AmberTools (`tleap`, `sander` on PATH),
+`openmm` and MDAnalysis (pip). Usage: python tests/make_testdata.py [outdir]
 
 Deviations from the CLAUDE.md recipe, forced by this build host (no GitHub downloads, GROMACS 2023.3 from apt):
   * GROMACS uses amber99sb-ildn + TIP3P shipped with the apt package, not a99SB-disp.
@@ -84,6 +84,22 @@ def make_amber(work: Path) -> None:
          "-r", "md.rst7", "-x", "md.nc", "-inf", "mdinfo"], work)
 
 
+def make_reference(work: Path) -> None:
+    """reference_compact.pdb: 100 ps of GB implicit-solvent MD collapses the extended chain enough to give native
+    contacts (an extended chain has none, and Q rightly refuses it). A test fixture, not the experimental CLN025."""
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "leap.in").write_text("set default PBRadii mbondi3\n" + LEAP.split("solvatebox")[0].replace("savepdb m solute.pdb\n", "")
+                                  + "saveamberparm m solute.prmtop solute.inpcrd\nquit\n")
+    (work / "min.in").write_text("min\n &cntrl\n  imin=1, maxcyc=500, ncyc=250, ntb=0, igb=8, cut=999.,\n /\n")
+    (work / "gb.in").write_text("gb collapse\n &cntrl\n  imin=0, irest=0, ntx=1, nstlim=50000, dt=0.002, ntc=2, ntf=2, cut=999., ntb=0,"
+                                " igb=8,\n  ntt=3, gamma_ln=5.0, temp0=300.0, tempi=300.0, ig=7, ntpr=5000, ntwx=0, ntwr=50000, ntxo=1,\n /\n")
+    run(["tleap", "-f", "leap.in"], work)
+    run(["sander", "-O", "-i", "min.in", "-o", "min.out", "-p", "solute.prmtop", "-c", "solute.inpcrd", "-r", "min.rst7"], work)
+    run(["sander", "-O", "-i", "gb.in", "-o", "gb.out", "-p", "solute.prmtop", "-c", "min.rst7", "-r", "gb.rst7"], work)
+    import MDAnalysis as mda
+    mda.Universe(str(work / "solute.prmtop"), str(work / "gb.rst7"), format="RESTRT").atoms.write(str(work / "reference_compact.pdb"))
+
+
 def make_gromacs(work: Path, solute_pdb: Path) -> None:
     """Parts: part0001 steps 0-1000, part0002 one frame at 1000 (ChainReader trap, duplicate boundary frame), part0003 to 2500."""
     work.mkdir(parents=True, exist_ok=True)
@@ -138,3 +154,4 @@ if __name__ == "__main__":
     make_amber(out / "amber")
     make_gromacs(out / "gromacs", out / "amber" / "solute.pdb")
     make_openmm(out / "openmm", out / "amber" / "cln025.prmtop", out / "amber" / "cln025.inpcrd")
+    make_reference(out / "reference")   # copy reference_compact.pdb to tests/data/, dropping its CRYST1 line

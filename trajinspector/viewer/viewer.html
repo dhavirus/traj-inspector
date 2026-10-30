@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Trajectory viewer</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--muted:#5a6572;--line:#d8dee4;--card:#f6f8fa;--folded:#1a7f37;--unfolded:#cf222e;--between:#9a6700}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9da7b3;--line:#30363d;--card:#161b22;--folded:#3fb950;--unfolded:#f85149;--between:#d29922}}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif}
+#bar{display:flex;gap:10px;align-items:center;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+#slider{flex:1;min-width:160px}#stage{position:absolute;top:44px;bottom:0;left:0;right:0}
+#badge{display:inline-block;min-width:78px;text-align:center;border-radius:10px;padding:1px 8px;color:#fff;font-weight:600}
+#info{font-variant-numeric:tabular-nums}select,button{font:inherit}
+#msg{position:absolute;top:60px;left:16px;color:var(--muted)}
+</style></head>
+<body>
+<div id="bar">
+  <label>Replica <select id="replica"></select></label>
+  <button id="play">Play</button>
+  <input id="slider" type="range" min="0" max="0" value="0" aria-label="frame">
+  <span id="info"></span> <span id="badge"></span>
+</div>
+<div id="stage"></div><div id="msg"></div>
+<script src="ngl.js"></script>
+<script src="viewer_data.js"></script>
+<script>
+"use strict";
+const DATA = window.VIEWER_DATA, STATE = {"-1": ["no state", "--between"], "0": ["unfolded", "--unfolded"], "1": ["folded", "--folded"]};
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n);
+const stage = new NGL.Stage("stage", {backgroundColor: css("--bg").trim() || "white"});
+let comp = null, traj = null, current = null, timer = null;
+
+function show(i) {
+  if (!traj || !current) return;
+  traj.setFrame(i);
+  $("slider").value = i;
+  const s = STATE[current.state[i]];
+  $("info").textContent = `t = ${(current.time_ps[i] / 1000).toFixed(4)} ns   Q = ${current.q[i].toFixed(3)}   frame ${i + 1}/${current.q.length}`;
+  $("badge").textContent = s[0];
+  $("badge").style.background = css(s[1]);
+}
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "Play"; } }
+function load(k) {
+  stop(); stage.removeAllComponents(); traj = null;
+  current = DATA.replicas[k]; $("msg").textContent = "loading...";
+  stage.loadFile(current.pdb, {asTrajectory: true}).then(o => {
+    comp = o;
+    o.addRepresentation("cartoon", {colorScheme: "residueindex"});
+    o.addRepresentation("licorice", {sele: "protein", opacity: 0.6, multipleBond: false});
+    traj = o.addTrajectory();
+    $("slider").max = current.q.length - 1;
+    o.autoView(); $("msg").textContent = ""; show(0);
+    window.VIEWER_READY = {frames: o.structure.frames.length, atoms: o.structure.atomCount};
+  }).catch(e => { $("msg").textContent = "cannot load " + current.pdb + ": " + e; window.VIEWER_ERROR = String(e); });
+}
+DATA.replicas.forEach((r, k) => { const opt = document.createElement("option"); opt.value = k; opt.textContent = r.name; $("replica").appendChild(opt); });
+$("replica").onchange = e => load(+e.target.value);
+$("slider").oninput = e => { stop(); show(+e.target.value); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "Pause";
+  timer = setInterval(() => show((+$("slider").value + 1) % current.q.length), 80);
+};
+window.addEventListener("resize", () => stage.handleResize());
+if (DATA.replicas.length) load(0); else $("msg").textContent = "Run an analysis first.";
+</script></body></html>

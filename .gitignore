@@ -4,3 +4,4 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+trajinspector/viewer/ngl.js
