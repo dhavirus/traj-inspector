@@ -1,0 +1,363 @@
+# Shipped defaults. Citations marked 'as given in CLAUDE.md' were not re-checked; source_url is set only where the
+# paper was confirmed in PubMed. msm_lag_ns and the block/density parameters are first guesses (rule of thumb).
+version: 1
+params:
+  q_unfolded: 0.3
+  q_folded: 0.8
+  max_frames: 5000
+  msm_lag_ns: 1.0
+  image_stride: 10
+  drift_min_ns: 1.0
+  ke_min_frames: 200
+  min_blocks: 8
+  density_equil_fraction: 0.5
+rules:
+- id: thermostat
+  gate: 1
+  check: Thermostat is not Berendsen
+  kind: not_in
+  value:
+  - berendsen
+  severity: fail
+  source: Bussi, Donadio & Parrinello 2007, J. Chem. Phys. 126, 014101; GROMACS manual
+  source_url: https://pubmed.ncbi.nlm.nih.gov/17212484/
+  tested_on: Lennard-Jones argon, TIP4P water
+  rule_of_thumb: false
+  enabled: true
+  note: Berendsen thermostat suppresses kinetic-energy fluctuations.
+- id: barostat
+  gate: 1
+  check: Barostat is not Berendsen
+  kind: not_in
+  value:
+  - berendsen
+  severity: fail
+  source: Bernetti & Bussi 2020, J. Chem. Phys. 153, 114107
+  source_url: https://pubmed.ncbi.nlm.nih.gov/32962386/
+  tested_on: LJ fluid, water, membrane
+  rule_of_thumb: false
+  enabled: true
+  note: 'Parrinello-Rahman gives WARN: unstable if started from an unequilibrated box (cannot be checked
+    from the files).'
+  warn_in:
+  - parrinello-rahman
+- id: forcefield_water
+  gate: 1
+  check: Water model matches force field
+  kind: manual
+  value: null
+  severity: warn
+  source: Robustelli et al. 2018, PNAS 115, E4758 (citation as given in CLAUDE.md; DOI not verified);
+    chignolin force-field evaluation, ChemRxiv 2024 (not verified)
+  source_url: null
+  tested_on: 21 proteins (Robustelli 2018)
+  rule_of_thumb: false
+  enabled: true
+  note: 'Needs a human: the water model is not recorded in the engine output.'
+- id: dt_max_fs
+  gate: 1
+  check: Time step (fs)
+  kind: max
+  value: 2.0
+  severity: fail
+  source: GROMACS manual; Jung et al. 2021, J. Chem. Theory Comput. (citation as given in CLAUDE.md; not
+    verified)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: false
+  enabled: true
+  note: Limit rises to value_hmr with hydrogen mass repartitioning.
+  value_hmr: 4.0
+- id: hmr_rates
+  gate: 1
+  check: No rates from an HMR run
+  kind: bool
+  value: false
+  severity: warn
+  source: Sahil, Sarkar & Mondal 2023, Biophys. J. 122, 802-816; Bowers 2026, J. Chem. Theory Comput.
+    (citation as given in CLAUDE.md; not verified)
+  source_url: https://pubmed.ncbi.nlm.nih.gov/36726313/
+  tested_on: T4 lysozyme, MopR, galectin-3 (Sahil 2023); alanine dipeptide (Bowers 2026)
+  rule_of_thumb: false
+  enabled: true
+  note: Metric is 'run uses HMR'. Sahil 2023 reports slower ligand recognition with HMR.
+- id: constraints
+  gate: 1
+  check: h-bonds constrained when dt > 1 fs
+  kind: bool
+  value: true
+  severity: fail
+  source: GROMACS manual
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: false
+  enabled: true
+  note: Metric is 'constraints are h-bonds or stricter, or dt <= 1 fs'.
+- id: cutoff_min_nm
+  gate: 1
+  check: Non-bonded cutoff (nm)
+  kind: min
+  value: 0.9
+  severity: warn
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: box_padding_nm
+  gate: 1
+  check: 'Frame-0 box padding: min image distance / 2 (nm)'
+  kind: min
+  value: 1.2
+  severity: warn
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: drift
+  gate: 2
+  check: Conserved-energy drift (|slope|, kJ/mol/ps/atom)
+  kind: max
+  value: 0.001
+  severity: fail
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: Needs a conserved energy and a window of at least params.drift_min_ns.
+- id: ke_width
+  gate: 2
+  check: Kinetic-energy width ratio (sd(T)/mean(T) / sqrt(2/ndof))
+  kind: range
+  value:
+  - 0.85
+  - 1.15
+  severity: fail
+  source: Merz & Shirts 2018, PLoS ONE 13, e0194555 (citation as given in CLAUDE.md; not verified)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: The band is a rule of thumb; needs params.ke_min_frames frames. ndof = 2*KE/(kB*T).
+- id: warnings
+  gate: 2
+  check: Constraint warnings in the log
+  kind: max
+  value: 0
+  severity: fail
+  source: GROMACS manual
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: false
+  enabled: true
+  note: 'GROMACS: ''LINCS WARNING''. Amber: ''vlimit exceeded''.'
+- id: min_image
+  gate: 2
+  check: Min protein-own-image distance minus cutoff (nm)
+  kind: min
+  value: 0.0
+  severity: fail
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: Must stay above the cutoff in all analysed frames.
+- id: density_drift
+  gate: 2
+  check: Density drift after equilibration (|slope|, kg/m3/ns)
+  kind: max
+  value: 1.0
+  severity: warn
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: rmsd_jump
+  gate: 2
+  check: Largest frame-to-frame C-alpha RMSD (nm)
+  kind: max
+  value: 0.5
+  severity: fail
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: group_temps
+  gate: 2
+  check: Group temperatures
+  kind: info
+  value: null
+  severity: warn
+  source: Wong-ekkabut & Karttunen 2016, J. Chem. Theory Comput. 12, 732 (citation as given in CLAUDE.md;
+    not verified)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: false
+  enabled: true
+  note: 'Not in v1: needs velocities.'
+- id: equilibration
+  gate: 3
+  check: Equilibration start t0 (pymbar detect_equilibration on Q)
+  kind: info
+  value: null
+  severity: warn
+  source: Chodera 2016, J. Chem. Theory Comput. 12, 1799 (citation as given in CLAUDE.md; DOI not verified)
+  source_url: null
+  tested_on: Liquid argon, 500 runs
+  rule_of_thumb: false
+  enabled: true
+  note: ''
+- id: n_eff_min
+  gate: 3
+  check: Effective samples of Q (N_eff)
+  kind: min
+  value: 20
+  severity: fail
+  source: Grossfield et al. 2018, Living J. Comput. Mol. Sci. 1, 5067 (citation as given in CLAUDE.md;
+    DOI not verified)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: block_plateau
+  gate: 3
+  check: Block-average SE ratio (largest block / half block)
+  kind: max
+  value: 1.25
+  severity: warn
+  source: Grossfield et al. 2018 (as above)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: Needs at least params.min_blocks blocks.
+- id: replicas_min
+  gate: 3
+  check: Number of replicas
+  kind: min
+  value: 3
+  severity: fail
+  source: Grossfield et al. 2018 (as above)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: replica_agreement
+  gate: 3
+  check: Largest pair difference in folded fraction / sqrt(se_i^2+se_j^2)
+  kind: max
+  value: 2.0
+  severity: fail
+  source: Grossfield et al. 2018 (as above)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: se = sqrt(p(1-p)/N_eff).
+- id: transitions
+  gate: 3
+  check: Folding/unfolding transitions (total)
+  kind: min
+  value: 5
+  severity: fail
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: Two-threshold Q states (params.q_unfolded, params.q_folded).
+- id: transitions_tm
+  gate: 3
+  check: Transitions needed for a melting temperature
+  kind: min
+  value: 20
+  severity: warn
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: transitions_rates
+  gate: 3
+  check: Transitions needed for rates
+  kind: min
+  value: 50
+  severity: warn
+  source: ''
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: q_bimodal
+  gate: 4
+  check: Fraction of frames between the two Q thresholds
+  kind: max
+  value: 0.2
+  severity: fail
+  source: Best, Hummer & Eaton 2013, PNAS 110, 17874 (citation as given in CLAUDE.md; DOI not verified)
+  source_url: null
+  tested_on: Shaw fast-folder trajectories
+  rule_of_thumb: true
+  enabled: true
+  note: The number 0.2 is a rule of thumb.
+- id: vamp2
+  gate: 4
+  check: VAMP-2 score of the features
+  kind: info
+  value: null
+  severity: warn
+  source: Scherer et al., arXiv:1811.11714 (as given in CLAUDE.md; not verified)
+  source_url: null
+  tested_on: 12 fast folders incl. CLN025
+  rule_of_thumb: false
+  enabled: true
+  note: ''
+- id: its_flat
+  gate: 4
+  check: Slowest implied timescale change, lag to 2*lag (fraction)
+  kind: max
+  value: 0.15
+  severity: warn
+  source: Prinz et al. 2011, J. Chem. Phys. 134, 174105 (citation as given in CLAUDE.md; DOI not verified)
+  source_url: null
+  tested_on: MR121-GSGS-W peptide
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: ck_test
+  gate: 4
+  check: Max Chapman-Kolmogorov error (2 metastable sets)
+  kind: max
+  value: 0.05
+  severity: warn
+  source: Prinz et al. 2011 (as above)
+  source_url: null
+  tested_on: MR121-GSGS-W peptide
+  rule_of_thumb: true
+  enabled: true
+  note: ''
+- id: fes
+  gate: 4
+  check: Free-energy surface Q x Rg (plot only)
+  kind: info
+  value: null
+  severity: warn
+  source: Grossfield et al. 2018 (as above)
+  source_url: null
+  tested_on: ''
+  rule_of_thumb: false
+  enabled: true
+  note: No barriers from projections.

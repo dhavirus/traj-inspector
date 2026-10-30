@@ -1,0 +1,20 @@
+[project]
+name = "trajinspector"
+version = "0.1.0"
+description = "Offline five-gate evaluation of MD trajectories"
+requires-python = ">=3.12"
+dependencies = ["numpy", "pyyaml", "MDAnalysis>=2.11", "pyedr", "matplotlib", "scipy", "pymbar>=4", "deeptime>=0.4.5", "PySide6"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+testdata = ["openmm"]
+
+[tool.setuptools.packages.find]
+include = ["trajinspector*"]
+
+[tool.setuptools.package-data]
+trajinspector = ["rules.yaml", "viewer/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore:No coordinate reader found:UserWarning"]
