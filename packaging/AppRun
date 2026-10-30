@@ -1,0 +1,9 @@
+#!/bin/sh
+# Entry point of the AppDir. Everything it needs is under $HERE/usr; nothing is fetched at runtime.
+HERE="$(dirname "$(readlink -f "$0")")"
+export PATH="$HERE/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export PYTHONNOUSERSITE=1
+# Chromium's sandbox needs a setuid helper, which cannot exist inside an AppImage mount.
+export QTWEBENGINE_DISABLE_SANDBOX=1
+exec "$HERE/usr/bin/python3.12" -m trajinspector "$@"

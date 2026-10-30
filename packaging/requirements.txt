@@ -1,0 +1,10 @@
+# Runtime dependencies of the AppImage. Installed with --only-binary and --platform manylinux_2_35_x86_64 (see build_appdir.sh).
+numpy
+pyyaml
+MDAnalysis>=2.11
+pyedr
+matplotlib
+scipy
+pymbar>=4
+deeptime>=0.4.5
+PySide6

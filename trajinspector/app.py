@@ -13,7 +13,7 @@ import yaml
 # Software GL fallback so the NGL viewer also works on a PC without a usable GPU. Must be set before QtWebEngine starts.
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--ignore-gpu-blocklist --enable-unsafe-swiftshader")
 
-from PySide6.QtCore import Qt, QThread, QUrl, Signal  # noqa: E402
+from PySide6.QtCore import QEvent, QEventLoop, Qt, QThread, QUrl, Signal  # noqa: E402
 from PySide6.QtGui import QAction  # noqa: E402
 from PySide6.QtWebEngineCore import QWebEngineSettings  # noqa: E402
 from PySide6.QtWebEngineWidgets import QWebEngineView  # noqa: E402
@@ -304,9 +304,26 @@ class MainWindow(QMainWindow):
         self._export("Export qc.json", "JSON (*.json)", lambda c, r: report.export_qc_json(c, r))
 
 
+def self_check() -> None:
+    """Build the window without showing it: proves Qt, QtWebEngine, the rules file and the bundled NGL are all present."""
+    from . import __version__
+    from .viewer import VIEWER_DIR
+    window = MainWindow()
+    print(f"trajinspector {__version__}: {len(window.rules_panel.base.rules)} rules, ngl.js {(VIEWER_DIR / 'ngl.js').stat().st_size} bytes, ok")
+    for view in (window.report_view, window.viewer_view):   # pages must die before the WebEngine profile at interpreter exit
+        view.page().deleteLater()
+        view.deleteLater()
+    window.deleteLater()
+    QApplication.processEvents(QEventLoop.AllEvents)
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
 def main() -> None:
     os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")   # also set by AppRun: the sandbox cannot be setuid inside an AppImage
     app = QApplication(sys.argv)
+    if "--self-check" in sys.argv:
+        self_check()
+        return
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

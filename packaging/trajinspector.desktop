@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Traj Inspector
+Comment=Evaluate MD trajectories against a five-gate checklist
+Exec=AppRun
+Icon=trajinspector
+Categories=Science;Chemistry;
+Terminal=false
