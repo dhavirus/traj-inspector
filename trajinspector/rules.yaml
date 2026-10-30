@@ -11,6 +11,7 @@ params:
   ke_min_frames: 200
   min_blocks: 8
   density_equil_fraction: 0.5
+  seed: 0
 rules:
 - id: thermostat
   gate: 1
